@@ -9,10 +9,9 @@ import seaborn as sns
 from sqlalchemy import create_engine
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-
 from classification.utils import remove_emphasis
 import greek_stemmer as gr_stemm
-file = path.join('data', 'nsk20000.csv')
+file = path.join('data', 'nsk_decisions.csv')
 data = pd.read_csv(file)
 print("Στήλες Συνόλου Δεδομένων: ", [x for x in data.columns])
 print("Γνωμοδοτήσεις: ", data.shape[0])
@@ -22,7 +21,7 @@ if not os.path.isfile('train.db'):
     chunksize = 20000
     k = 0
     index_start = 1
-    for df in pd.read_csv('data/nsk20000.csv', chunksize=chunksize, iterator=True, encoding='utf-8'):
+    for df in pd.read_csv('data/nsk_decisions.csv', chunksize=chunksize, iterator=True, encoding='utf-8'):
         df.index += index_start
         k+=1
         df.to_sql('data', disk_engine, if_exists='append')
@@ -73,6 +72,7 @@ if os.path.isfile('no_duplicate.db'):
 lemma_data.head()
 # Ανάλυση τίτλου και περίληψης
 
+
 con = sqlite3.connect('no_duplicate.db')
 dataframe = pd.read_sql_query("""SELECT * FROM no_duplicate_train""", con)
 con.close()
@@ -107,12 +107,12 @@ feats_df.head(5)
 #Εξαγωγή στατιστικών χαρακτηριστικών των γνωμοδοτήσεων
 feats_df.describe()
 #Συνάρτηση πυκνότητας πιθανότητας
-# plt.figure(figsize=(15, 8))
-# plt.subplot(1,3,1)
-# sns.distplot([feats_df['Length_Title']], color = 'green', axlabel="Κατανομή του μήκους των τίτλων")
-# plt.subplot(1,3,2)
-# sns.distplot([feats_df['Length_Concultatory']], color = 'blue', axlabel="Κατανομή του μήκους των περιλήψεων των Γνωμοδοτήσεων ")
-# plt.show()
+plt.figure(figsize=(15, 8))
+plt.subplot(1,3,1)
+sns.distplot([feats_df['Length_Title']], color = 'green', axlabel="Κατανομή του μήκους των τίτλων")
+plt.subplot(1,3,2)
+sns.distplot([feats_df['Length_Concultatory']], color = 'blue', axlabel="Κατανομή του μήκους των περιλήψεων των Γνωμοδοτήσεων ")
+plt.show()
 
 # lemma_data_lower= pd.DataFrame([x.lower() for x in lemma_data.Category])
 # lemma_data_lower['Category'] = lemma_data_lower
@@ -147,7 +147,7 @@ def removePatterns(sentence):
               if word.strip (punctuation))
     return (sentence)
 
-stemmer = gr_stemm.GreekStemmer()#κλήση αντικειμένου για stemmingdef rearange(x):
+#stemmer = gr_stemm.GreekStemmer()#κλήση αντικειμένου για stemmingdef rearange(x):
 def rearange(x):
     x = str (x).lower ( )
     x = x.replace ("παρ.", "").replace ("εκείνη", "").replace ("′Δ/νση", "Διεύθυνση").replace ("(πλειοψ.)", "") \
@@ -176,7 +176,7 @@ def removePatterns(sentence):
               if word.strip (punctuation))
     return (sentence)
 
-stemmer = gr_stemm.GreekStemmer()#κλήση αντικειμένου για stemming
+#stemmer = gr_stemm.GreekStemmer()#κλήση αντικειμένου για stemming
 # κλήση συνόλου stopwords
 stop_words = nltk.corpus.stopwords.words('greek')
 newStopWords = [' προς ','του','της','και','την','η','των','το','να', 'από', 'με', 'που', 'δεν', 'για',
@@ -225,15 +225,9 @@ dataframe['Concultatory'] = preprocessed_documents
 # dataframe['Title'] = preprocessed_documents
 
 
-
-# lemma_data_lower= pd.DataFrame([x.lower() for x in lemma_data.Category])
-# lemma_data_lower['Category'] = lemma_data_lower
-# lemma_data.head()
-# lemma_data_lower.head()
 print("Το μέγεθος των γνωμοδοτήσεων είναι : {}".format(len(preprocessed_documents)))
 dataframe.head ()
 dataframe.to_csv("data/preprocessed/decisions_lemmas.csv",mode = 'w', index=False)
-
 
 
 

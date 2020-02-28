@@ -1,17 +1,13 @@
 from functools import reduce
-from keras.preprocessing.text import Tokenizer
 from keras import Input, Model
 from keras.layers import GlobalMaxPool1D, Conv1D,LSTM, Bidirectional
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
-from keras.utils import np_utils
 from keras_preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MultiLabelBinarizer
 from itertools import chain
 import warnings
 import pandas as pd
 from Reports.helper_functions import accuracy
-from sklearn.metrics import make_scorer, precision_score, recall_score, f1_score
 from keras.callbacks import ReduceLROnPlateau
 import keras.optimizers
 from keras.layers.core import Activation, Flatten, Dropout, Dense
@@ -32,7 +28,22 @@ def tokenizeSentences(sent):
     doc = nlp(sent)
     sentences = [sent.string.strip() for sent in doc]
     return sentences
+###########################
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+from sklearn.preprocessing import MultiLabelBinarizer
 
+maxlen = 180
+max_words = 5000
+tokenizer = Tokenizer(num_words=max_words, lower=True)
+tokenizer.fit_on_texts(dataframe.Concultatory)
+def get_features(text_series):
+    """
+    transforms text data to feature_vectors that can be used in the ml model.
+    tokenizer must be available.
+    """
+    sequences = tokenizer.texts_to_sequences(text_series)
+    return pad_sequences(sequences, maxlen=maxlen)
 
 '''
 Συνάρτηση για να πάρουμε λέξεις που τουλάχιστον εμφανίστηκαν περισσότερο από μία φορά στο vocab μας. 
@@ -183,7 +194,7 @@ def gen_model_lemma():
   model.add(Dense(vocab_len, activation='relu', input_shape=(50,)))
   model.add(Dropout(0.25))
   model.add(Dense(20, activation='sigmoid'))
-  model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+  model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
   return model
 
 lr_reduction = ReduceLROnPlateau(monitor='val_acc',
@@ -191,7 +202,7 @@ lr_reduction = ReduceLROnPlateau(monitor='val_acc',
                                             verbose=1,
                                             factor=0.5,
                                             min_lr=0.0001)
-epochs, batch_size = 20, 128
+epochs, batch_size = 10, 128
 
 model = gen_model_lemma()
 model.fit(x_train, y_train_df,
@@ -205,13 +216,13 @@ y_pred = model.predict(x_test)
 predictions = pd.DataFrame(index=y_test_df.index, columns=y_test_df.columns)
 for i in range(y_pred.shape[0]):
   predictions.iloc[i,:] = (y_pred[i,:]>prob_thresh).map({True:1, False:0})
-accuracy(y_test_df, predictions)
+print(accuracy(y_test_df, predictions))
 
 
 
 #Νευρωνικό Μοντελοποίηση
 
-n_in = 50
+n_in = 180
 EMBEDDING_DIM=100
 
 filter_sizes = (2,4,5,8)
@@ -275,16 +286,17 @@ y_pred = model_cnn_multifilter.predict(x_test)
 predictions = pd.DataFrame(index=y_test_df.index, columns=y_test_df.columns)
 for i in range(y_pred.shape[0]):
   predictions.iloc[i,:] = (y_pred[i,:]>prob_thresh).map({True:1, False:0})
+
 accuracy(y_test_df, predictions)
 
 
 #Μοντελοποίηση simple model
 simple_model = Sequential()
-simple_model.add(Embedding(vocab_len+3, 100, input_length=x_train.shape[1]))
+simple_model.add(Embedding(5000, 100, input_length=x_train.shape[1]))
 simple_model.add(Dropout(0.2))
 simple_model.add(GlobalMaxPool1D())
 simple_model.add(Dense(20 , activation='sigmoid'))
-simple_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+simple_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['categorical_accuracy'])
 callbacks = [
     ReduceLROnPlateau(),
     EarlyStopping(patience=4),
@@ -308,19 +320,19 @@ y_pred = simple_model.predict(x_test)
 predictions = pd.DataFrame(index=y_test_df.index, columns=y_test_df.columns)
 for i in range(y_pred.shape[0]):
   predictions.iloc[i,:] = (y_pred[i,:]>prob_thresh).map({True:1, False:0})
-accuracy(y_test_df, predictions)
+print(accuracy(y_test_df, predictions))
 
 ####################################################################
 filter_length = 256
 cnn_model= Sequential()
-cnn_model.add(Embedding(vocab_len+3, 100, input_length=x_train.shape[1]))
-cnn_model.add(Dropout(0.1))
+cnn_model.add(Embedding(5000, 100, input_length=x_train.shape[1]))
+cnn_model.add(Dropout(0.3))
 cnn_model.add(Conv1D(filter_length, 3, padding='valid', activation='relu', strides=1))
 cnn_model.add(GlobalMaxPool1D())
 cnn_model.add(Dense(y_train_df.shape[1]))
 cnn_model.add(Activation('sigmoid'))
 cnn_model.summary()
-cnn_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
+cnn_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 cnn_model.summary()
 callbacks = [
     ReduceLROnPlateau(),
@@ -329,7 +341,7 @@ callbacks = [
 ]
 cnn_history = cnn_model.fit(x_train, y_train_df,
                     class_weight='auto',
-                    epochs=10,
+                    epochs=30,
                     batch_size=32,
                     validation_split=0.2,
                     callbacks=callbacks)
@@ -345,21 +357,22 @@ y_pred = cnn_model.predict(x_test)
 predictions = pd.DataFrame(index=y_test_df.index, columns=y_test_df.columns)
 for i in range(y_pred.shape[0]):
   predictions.iloc[i,:] = (y_pred[i,:]>prob_thresh).map({True:1, False:0})
-accuracy(y_test_df, predictions)
+print(accuracy(y_test_df, predictions))
+
 
 #lstm
 lstm_out = 128
 model_lstm = Sequential()
-model_lstm.add(Embedding(vocab_len+3, 128, input_length=x_train.shape[1]))
+model_lstm.add(Embedding(5000, 128, input_length=x_train.shape[1]))
 model_lstm.add(Bidirectional(LSTM(64)))
 model_lstm.add(Dropout(0.5))
-model_lstm.add(Dense(y_train_df.shape[1],activation='sigmoid'))
-model_lstm.compile(loss = 'binary_crossentropy', optimizer='adam',metrics = ['categorical_accuracy'])
+model_lstm.add(Dense(y_train_df.shape[1],activation='softmax'))
+model_lstm.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 
 lstm_history = model_lstm.fit(x_train, y_train_df,
                     class_weight='auto',
-                    epochs=20,
+                    epochs=2,
                     batch_size=32,
                     validation_split=0.2,
                     callbacks=callbacks)
@@ -373,7 +386,7 @@ y_pred = model_lstm.predict(x_test)
 predictions = pd.DataFrame(index=y_test_df.index, columns=y_test_df.columns)
 for i in range(y_pred.shape[0]):
   predictions.iloc[i,:] = (y_pred[i,:]>prob_thresh).map({True:1, False:0})
-accuracy(y_test_df, predictions)
+print(accuracy(y_test_df, predictions))
 
 ######################################################################
 '''Πρόβλεψη μιας καινούριας τυχαίας Γνωμοδότησης από το www.nsk.gr'''

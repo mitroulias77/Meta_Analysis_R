@@ -58,7 +58,7 @@ sorted_idx = count_lemmas_sorted.index
 sorted_idx = list(sorted_idx)
 
 lemmata_new = list(count_lemmas['Lemma'])
-new_lemmata = [lemmata_new[word] for word in sorted_idx[:5]]
+new_lemmata = [lemmata_new[word] for word in sorted_idx[:20]]
 new_categories = decisions_new['New_Lemmas']
 
 for idx, row in decisions_new.iterrows():
@@ -85,4 +85,5 @@ decisions_new = decisions_new.join(pd.DataFrame(mlb.fit_transform(decisions_new.
                           columns=mlb.classes_,
                           index=decisions_new.index))
 
-decisions_new.to_csv("data/preprocessed/decisions_top5_lemmas.csv",mode = 'w', index=False)
+decisions_new.to_csv("data/preprocessed/decisions_top40_lemmas.csv",mode = 'w', index=False)
+# decisions_new.to_csv("data/preprocessed/decisions_top40_lemmas.csv",mode = 'w', index=False)
