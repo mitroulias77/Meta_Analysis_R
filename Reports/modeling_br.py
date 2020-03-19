@@ -1,16 +1,17 @@
 import warnings
 from imblearn.pipeline import Pipeline
+from setuptools.command.test import test
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.multiclass import OneVsRestClassifier
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import MultinomialNB, ComplementNB, BernoulliNB
 from sklearn.svm import LinearSVC
-
 warnings.filterwarnings('always')
 warnings.filterwarnings('ignore')
 import seaborn as sns
-from sklearn.metrics import make_scorer, precision_score, recall_score, f1_score
+from sklearn.metrics import make_scorer, precision_score, recall_score, f1_score, accuracy_score, classification_report
 
 sns.set_style("whitegrid")
 sns.set_context("talk", font_scale=0.8)
@@ -21,49 +22,66 @@ overall_f1_score_v1_cv = make_scorer(overall_f1_score_v1, greater_is_better=True
 my_data_train = pd.read_csv('data/preprocessed/decisions_lemmas_train_preprocessed.csv')
 my_data_test = pd.read_csv('data/preprocessed/decisions_lemmas_test_preprocessed.csv')
 
-train_X, train_y = my_data_train['Concultatory'], my_data_train.drop(['Concultatory','Title'], axis=1)
-test_X, test_y = my_data_test['Concultatory'], my_data_test.drop(['Concultatory','Title'], axis=1)
+train_X, train_y = my_data_train['Title'], my_data_train.drop(['Concultatory','Title'], axis=1)
+test_X, test_y = my_data_test['Title'], my_data_test.drop(['Concultatory','Title'], axis=1)
 
 lemma_columns = train_y.columns
 
-'''
-Η ταξινόμηση δυαδικής συνάφειας συνίσταται στην τοποθέτηση ενός ταξινομητή ανά κλάση. 
-Για κάθε ταξινομητή, η τάξη προσαρμόζεται σε όλες τις άλλες κλάσεις - επομένως χρειάζονται 
-ταξινομητές n_classes. 
-Η ένωση όλων των κλάσεων που προβλεπόταν λαμβάνεται ως έξοδος πολλαπλών ετικετών. 
-Χρησιμοποιούμε την ενσωματωμένη λειτουργία sklearn OneVsRestClassifier για να επιτύχουμε 
-αυτή την ταξινόμηση πολλαπλών ετικετών.
-Ο OnevsRestClassifier χρησιμοποιείται συνήθως για ταξινόμηση πολλαπλών κατηγοριών. 
-Ωστόσο, υποστηρίζει επίσης την ταξινόμηση πολλαπλών ετικετών. 
-Για να χρησιμοποιήσετε αυτό το χαρακτηριστικό, τροφοδοτήστε τον ταξινομητή μια μήτρα δείκτη, 
-στην οποία το κελί [i, j] υποδηλώνει την παρουσία της ετικέτας j στο δείγμα i.
-Το όριο πιθανότητας που χρησιμοποιείται για την ταξινόμηση κάθε λήμματος βασίζεται στη συχνότητα εμφάνισής του
-'''
-
-prob_thresh = get_prob_thresh(decisions_new[lemma_columns], thresh_sel=2)
+prob_thresh = get_prob_thresh(my_data_train[lemma_columns],thresh_sel=1)
 
 pipeline = Pipeline([
-                ('tfidf', TfidfVectorizer()),
-                ('clf', OneVsRestClassifier(MultinomialNB(fit_prior=True, class_prior=None)))
+                ('cvec', CountVectorizer(max_df=0.5, min_df=2, ngram_range=(1, 2))),
+                ('clf', OneVsRestClassifier(LinearSVC(C=1, class_weight='balanced')))
             ])
-parameters = {
-                'tfidf__max_df': (0.25, 0.5, 0.75),
-                'tfidf__ngram_range': [(1, 2)],
-                'tfidf__min_df': [1, 3, 5],
-                'clf__estimator__alpha': (1e-2, 1e-3)
-            }
 
-grid_search_cv = GridSearchCV(pipeline, parameters, cv=2, n_jobs=3, verbose=10)
-grid_search_cv.fit(train_X, train_y)
+pipeline.fit(train_X, train_y)
+predictions = pipeline.predict(test_X)
+print(accuracy(test_y, predictions))
+br1_title = accuracy(test_y, predictions)
+br1_title.to_excel('data/Results/br1_title.xlsx')
+#Br2
+pipeline = Pipeline([
+                    ('tfidf', TfidfVectorizer(max_df=0.5, min_df=2, ngram_range=(1, 1))),
+                    ('clf', OneVsRestClassifier(LogisticRegression(C=100)))
+            ])
+pipeline.fit(train_X, train_y)
+print(accuracy(test_y, predictions))
+br2_title = accuracy(test_y, predictions)
+br2_title.to_excel('data/Results/br2_title.xlsx')
+#br3
 
-print()
-print("Καλύτεροι παράμετροι συνόλου:")
-print (grid_search_cv.best_estimator_.steps)
-print()
-best_clf = grid_search_cv.best_estimator_
-prob, predictions = multi_label_predict(best_clf, test_X, prob_thresh)
+pipeline = Pipeline([
+                ('tfidf', TfidfVectorizer(max_df=0.5,min_df=2, ngram_range=(1,2))),
+                ('clf', OneVsRestClassifier(MultinomialNB(alpha = 0.01, fit_prior=False, class_prior=None)))
+            ])
+pipeline.fit(train_X, train_y)
+predictions = pipeline.predict(test_X)
+print(accuracy(test_y, predictions))
 
-accuracy(test_y, predictions)
+
+br3_title = accuracy(test_y, predictions)
+br3_title.to_excel('data/Results/br3_title.xlsx')
+
+#br4
+pipeline = Pipeline([
+                ('tfidf', TfidfVectorizer(max_df=0.5,min_df=2, ngram_range=(1,2))),
+                ('clf', OneVsRestClassifier(BernoulliNB(alpha = 0.005, fit_prior=False, class_prior=None)))
+            ])
+pipeline.fit(train_X, train_y)
+predictions = pipeline.predict(test_X)
+print(accuracy(test_y, predictions))
+br4_title = accuracy(test_y, predictions)
+br4_title.to_excel('data/Results/br4_title.xlsx')
+
+
+pipeline = Pipeline([
+                ('tfidf', TfidfVectorizer(max_df=0.5,min_df=2, ngram_range=(1,2))),
+                ('clf', OneVsRestClassifier(BernoulliNB(alpha = 0.005, fit_prior=False, class_prior=None)))
+            ])
+pipeline.fit(train_X, train_y)
+predictions = pipeline.predict(test_X)
+print(accuracy(test_y, predictions))
+
 
 # predictions = best_clf.predict(test_X)
 
@@ -75,7 +93,7 @@ pipeline = Pipeline([
             ])
 pipeline.fit(train_X, train_y)
 predictions = pipeline.predict(test_X)
-accuracy(test_y, predictions)
+print(accuracy(test_y, predictions))
 
 #Χρήση Custom Συνάρτησης Πρόβλεψης
 pipeline = Pipeline([
@@ -85,27 +103,9 @@ pipeline = Pipeline([
 pipeline.fit(train_X, train_y)
 
 prob, predictions = multi_label_predict(best_clf, test_X, prob_thresh)
-accuracy(test_y, predictions)
+print(accuracy(test_y, predictions))
 
 
-##############
-pipeline = Pipeline([
-                ('tfidf', TfidfVectorizer(max_df=0.5, min_df = 2, ngram_range=(1,3))),
-                ('clf', OneVsRestClassifier(MultinomialNB(alpha = 0.01, fit_prior=True, class_prior=None)))
-            ])
-pipeline.fit(train_X, train_y)
-
-prob, predictions = multi_label_predict(best_clf, test_X, prob_thresh)
-accuracy(test_y, predictions)
-
-prob[test_y['ΔΗΜΟΣΙΟ'] == 1]
-
-test_X.loc[2057]
-
-word_weight = analyze_plot_lemma(pipeline, test_X.loc[2055], ['ΔΗΜΟΣΙΟ', 'ΑΡΜΟΔΙΟΤΗΤΑ', 'ΥΠΑΛΛΗΛΟΙ ΔΗΜΟΣΙΟΙ'])
-
-df_good = get_features_tfidf(pipeline, lemma_columns)
-df_good
 
 #TFIDF + SVC
 # LinearSVC --> Γραμμικό SVM και δεν εξάγει πιθανότητες
@@ -131,18 +131,20 @@ print (grid_search_cv.best_estimator_.steps)
 print()
 best_clf = grid_search_cv.best_estimator_
 predictions = best_clf.predict(test_X)
-accuracy(test_y, predictions)
+print(accuracy(test_y, predictions))
 
 #individual hyperparameter
 
 pipeline = Pipeline([
-                ('tfidf', TfidfVectorizer(max_df=1.0, min_df = 2, ngram_range=(1, 2))),
-                ('clf', OneVsRestClassifier(LinearSVC(C=2, class_weight='balanced', penalty='l2'), n_jobs=-1))
+                ('tfidf', TfidfVectorizer(max_df=0.25, min_df = 2, ngram_range=(1, 2))),
+                ('clf', OneVsRestClassifier(LinearSVC(C=1, class_weight='balanced', penalty='l2'), n_jobs=-1))
             ])
 pipeline.fit(train_X,train_y)
 
 predictions =pipeline.predict(test_X)
-accuracy(test_y, predictions)
+print(accuracy(test_y, predictions))
+
+print("Accuracy = ",accuracy_score(test_y,predictions))
 from scipy import stats
 #TF-IDF + LR
 
@@ -158,14 +160,22 @@ parameters = {
             'clf__estimator__C':[0.001, 0.01, 0.1, 1, 10, 100, 1000],
             'clf__estimator__class_weight': ['balanced']
             }
-
+print (grid_search_cv.best_estimator_.steps)
+print()
 grid_search_cv = GridSearchCV(pipeline, parameters, cv=2, n_jobs=3, verbose=10)
 grid_search_cv.fit(train_X, train_y)
 best_clf = grid_search_cv.best_estimator_
 # pipeline.fit(train_X, train_y)
 
 prob, predictions = multi_label_predict(best_clf, test_X, prob_thresh)
-accuracy(test_y, predictions)
+print(accuracy(test_y, predictions))
+br_titleLR = accuracy(test_y, predictions)
+br_titleLR.to_excel('data/Results/br_titleLR.xlsx')
+
+from sklearn.metrics import multilabel_confusion_matrix
+matrix = multilabel_confusion_matrix(test_y, predictions)
+print(matrix)
+print(classification_report(test_y,predictions))
 # predictions = best_clf.predict(test_X)
 # accuracy(test_y,predictions)
 
@@ -175,22 +185,22 @@ accuracy(test_y, predictions)
 print ("Εφαρμογή Βέλτιστου Ταξινόμητη στο σύνολο ελέγχου:")
 best_clf = grid_search_cv.best_estimator_
 prob, predictions = multi_label_predict(best_clf, test_X, prob_thresh)
-accuracy(test_y, predictions)
+print(accuracy(test_y, predictions))
 
 # predictions = best_clf.predict(test_X)
 # accuracy(test_y, predictions)
 # A Single Hyperparameter
 pipeline = Pipeline([
-                ('tfidf', TfidfVectorizer(max_df=0.5, min_df=2, ngram_range=(1, 2))),
-                ('clf', OneVsRestClassifier(LogisticRegression(C=100)))
+                    ('tfidf', TfidfVectorizer(max_df=0.5, min_df=2, ngram_range=(1, 2))),
+                    ('clf', OneVsRestClassifier(LogisticRegression(C=100)))
             ])
 pipeline.fit(train_X, train_y)
 
 predictions = best_clf.predict(test_X)
 accuracy(test_y, predictions)
 prob, predictions = multi_label_predict(pipeline, test_X, prob_thresh)
-accuracy(test_y, predictions)
-
+print(accuracy(test_y, predictions))
+#################################################################################
 # CountVectorizer + SVC
 # LinearSVC
 pipeline = Pipeline([
@@ -217,28 +227,41 @@ print()
 print ("Εφαρμογή Βέλτιστου Ταξινόμητη στο σύνολο ελέγχου:")
 best_clf = grid_search_cv.best_estimator_
 predictions = best_clf.predict(test_X)
-accuracy(test_y, predictions)
+print(accuracy(test_y, predictions))
+br_cv_linear_svc = accuracy(test_y, predictions)
+br_cv_linear_svc.to_excel('data/Results/br_cv_linear_svc.xlsx')
 
-# Single Hyperparameter Tuning
-pipeline = Pipeline([
-                ('cvec', CountVectorizer(max_df=0.5, min_df=1, ngram_range=(1, 1))),
-                ('clf', OneVsRestClassifier(LinearSVC(C=1, class_weight='balanced')))
-            ])
-pipeline.fit(train_X, train_y)
-
-predictions = pipeline.predict(test_X)
-accuracy(test_y, predictions)
+#TFIDF + SVC
+# LinearSVC --> Γραμμικό SVM και δεν εξάγει πιθανότητες
 
 pipeline = Pipeline([
-                ('cvec', CountVectorizer(max_df=0.5, min_df=1, ngram_range=(1, 2))),
-                ('clf', OneVsRestClassifier(LinearSVC(C=1, class_weight='balanced')))
+                ('tfidf', TfidfVectorizer()),
+                ('clf', OneVsRestClassifier(LinearSVC()))
             ])
-pipeline.fit(train_X, train_y)
+parameters = {
+                'tfidf__max_df': (0.25, 0.5),
+                'tfidf__ngram_range': [(1, 1),(1,2)],
+                'tfidf__min_df': [1, 3],
+                'clf__estimator__C':[0.001, 0.01, 0.1, 1, 10, 100, 1000],
+                'clf__estimator__class_weight': ['balanced'],
+            }
 
-predictions = pipeline.predict(test_X)
-accuracy(test_y, predictions)
+grid_search_cv = GridSearchCV(pipeline, parameters, cv=2, n_jobs=4, verbose=10)
+grid_search_cv.fit(train_X, train_y)
 
-###################################
+print()
+print("Καλύτεροι παράμετροι συνόλου:")
+print (grid_search_cv.best_estimator_.steps)
+print()
+best_clf = grid_search_cv.best_estimator_
+predictions = best_clf.predict(test_X)
+print(accuracy(test_y, predictions))
+
+br_cv_linear_svc = accuracy(test_y, predictions)
+br_cv_linear_svc.to_excel('data/Results/br_tfidf_linear_svc.xlsx')
+
+prob_thresh = get_prob_thresh(my_data_train[lemma_columns], thresh_sel=1)
+
 pipeline = Pipeline([
             ('tfidf', TfidfVectorizer()),
             ('clf', OneVsRestClassifier(LogisticRegression(class_weight='balanced'), n_jobs=-1)),
@@ -252,9 +275,26 @@ parameters = {
 
 grid_search_cv = GridSearchCV(pipeline, parameters, cv=5, n_jobs=-1, verbose=0)
 grid_search_cv.fit(train_X, train_y)
-best_clf = grid_search_cv.best_estimator_
-# pipeline.fit(train_X, train_y)
-# predictions = pipeline.predict(test_X)
-# accuracy(test_y, predictions)
+print(best_clf = grid_search_cv.best_estimator_)
+
 prob, predictions = multi_label_predict(best_clf, test_X, prob_thresh)
 accuracy(test_y, predictions)
+
+br_TFIDF_LR = accuracy(test_y, predictions)
+br_TFIDF_LR.to_excel('data/Results/br_tfidf_LR.xlsx')
+
+
+
+###################################
+
+
+pipeline = Pipeline([
+                ('cvec', CountVectorizer(max_df=0.5, min_df=2, ngram_range=(1, 1))),
+                ('clf',RandomForestClassifier(max_features='sqrt', n_jobs =4))
+            ])
+
+pipeline.fit(train_X, train_y)
+predictions = pipeline.predict(test_X)
+print(accuracy(test_y, predictions))
+
+

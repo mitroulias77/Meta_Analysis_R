@@ -120,7 +120,7 @@ plt.show()
 # lemma_data_lower.head()
 
 def rearange(x):
-    x = str (x).lower ( )
+    x = str (x).lower()
     x = x.replace ("παρ.", "").replace ("εκείνη", "").replace ("′Δ/νση", "Διεύθυνση").replace ("(πλειοψ.)", "") \
         .replace ("απ'", "από").replace ("κλπ", " ").replace ("(Τριμελούς Επιτροπής)", "") \
         .replace ("Αντιπρόεδρος Εισηγήτρια:", "").replace ("Προεδρεύων:", "").replace ("Αντιπρόεδρος Εισηγητής:", "") \
@@ -128,24 +128,24 @@ def rearange(x):
 
     return x
 #Συναρτήσεις προεπεξεργασίας του νομικού κειμένου
-def remove_numbers(sentence):
-    sentence = re.sub("\S*\d\S*", " ", sentence).strip()
-    return (sentence)
+def remove_numbers(s):
+    s = re.sub("\S*\d\S*", " ", s).strip()
+    return (s)
 from string import punctuation
 
-def strip_punctuation(sentence):
-    cleaned_text  = ''.join(c for c in sentence if c not in punctuation)
+def strip_punctuation(w):
+    cleaned_text  = ''.join(c for c in w if c not in punctuation)
     return (cleaned_text)
 
-def removeEmphasis(sentence):
-    sentence = sentence.split()
-    no_emphasis = [remove_emphasis(x) for x in sentence]
+def removeEmphasis(word):
+    word = word.split()
+    no_emphasis = [remove_emphasis(x) for x in word]
     return (no_emphasis)
 
-def removePatterns(sentence):
-    ' '.join (word.strip (punctuation) for word in sentence.split()
+def removePatterns(w):
+    ' '.join (word.strip (punctuation) for word in w.split()
               if word.strip (punctuation))
-    return (sentence)
+    return (w)
 
 #stemmer = gr_stemm.GreekStemmer()#κλήση αντικειμένου για stemmingdef rearange(x):
 def rearange(x):
@@ -199,6 +199,8 @@ newStopWords = [' προς ','του','της','και','την','η','των','
 stop_words.extend(newStopWords)
 print(stop_words)
 
+
+
 #συνδιασμός όλων των παραπάνω
 preprocessed_documents = []
 
@@ -221,8 +223,8 @@ for document in tqdm(dataframe['Concultatory'].values):
     document = " ".join (filtered_sentence)
     preprocessed_documents.append(document.strip())
 
-dataframe['Concultatory'] = preprocessed_documents
-# dataframe['Title'] = preprocessed_documents
+dataframe['Title'] = preprocessed_documents
+# dataframe['Concultatory'] = preprocessed_documents
 
 
 print("Το μέγεθος των γνωμοδοτήσεων είναι : {}".format(len(preprocessed_documents)))
