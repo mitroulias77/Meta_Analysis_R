@@ -84,5 +84,5 @@ decisions_new = decisions_new.join(pd.DataFrame(mlb.fit_transform(decisions_new.
                           columns=mlb.classes_,
                           index=decisions_new.index))
 
-decisions_new.to_csv("data/preprocessed/decisions_top100_lemmas.csv",mode = 'w', index=False)
-# decisions_new.to_csv("data/preprocessed/decisions_top5_lemmas.csv",mode = 'w', index=False)
+decisions_new.to_csv("data/preprocessed/decisions_top40_lemmas.csv",mode = 'w', index=False)
+# decisions_new.to_csv("data/preprocessed/decisions_top100_lemmas.csv",mode = 'w', index=False)
