@@ -57,7 +57,7 @@ sorted_idx = count_lemmas_sorted.index
 sorted_idx = list(sorted_idx)
 
 lemmata_new = list(count_lemmas['Lemma'])
-new_lemmata = [lemmata_new[word] for word in sorted_idx[:100]]
+new_lemmata = [lemmata_new[word] for word in sorted_idx[25:65]]
 new_categories = decisions_new['New_Lemmas']
 
 for idx, row in decisions_new.iterrows():
