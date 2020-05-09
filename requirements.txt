@@ -158,7 +158,7 @@ srsly==0.2.0
 subprocess32==3.5.4
 tenacity==6.0.0
 tensorboard==1.13.1
-tensorflow==1.13.1
+tensorflow==1.15.2
 tensorflow-estimator==1.13.0
 tensorflow-hub==0.7.0
 termcolor==1.1.0
